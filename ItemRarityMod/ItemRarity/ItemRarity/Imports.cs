@@ -1,0 +1,1 @@
+﻿global using ItemRarityInfos = (string Key, ItemRarity.Rarities.RarityModel Value);

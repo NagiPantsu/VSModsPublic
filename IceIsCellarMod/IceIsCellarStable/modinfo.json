@@ -1,0 +1,9 @@
+{
+    "type": "code",
+    "modid": "iceiscellar",
+    "name": "Ice is cellar",
+    "description": "Makes ice blocks valid cellar blocks",
+    "authors": ["test"],
+    "version": "1.0.0",
+    "dependencies": {"game": "1.21.6"}
+}

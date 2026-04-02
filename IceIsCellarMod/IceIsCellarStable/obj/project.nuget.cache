@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "WLImHAWSnng=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\soure\\OneDrive\\Documentos\\Mod Project\\IceIsCellarStable\\iceiscellar.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\soure\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.25\\microsoft.netcore.app.ref.8.0.25.nupkg.sha512",
+    "C:\\Users\\soure\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.25\\microsoft.windowsdesktop.app.ref.8.0.25.nupkg.sha512",
+    "C:\\Users\\soure\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.25\\microsoft.aspnetcore.app.ref.8.0.25.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -1,0 +1,82 @@
+﻿[
+  {
+    "ingredientPattern": "R,F,R,L,G,L",
+    "width": 3,
+    "height": 2,
+    "ingredients": {
+      "R": { "type": "item", "code": "game:charcoal", "quantity": 2 },
+      "F": { "type": "item", "code": "game:flaxtwine" },
+      "L": { "type": "item", "code": "game:flint", "quantity": 2 },
+      "G": { "type": "item", "code": "game:gear-rusty" }
+    },
+    "output": { "type": "item", "code": "itemrarity:tier-1", "quantity": 1 }
+  },
+  {
+    "ingredientPattern": "R,F,R,L,G,L",
+    "width": 3,
+    "height": 2,
+    "ingredients": {
+      "R": { "type": "item", "code": "game:charcoal", "quantity": 4 },
+      "F": { "type": "item", "code": "game:flaxtwine", "quantity": 2 },
+      "L": { "type": "item", "code": "game:metalbit-copper", "quantity": 10 },
+      "G": { "type": "item", "code": "game:gear-rusty" }
+    },
+    "output": { "type": "item", "code": "itemrarity:tier-2", "quantity": 1 }
+  },
+  {
+    "ingredientPattern": "R,F,T,L,G,L",
+    "width": 3,
+    "height": 2,
+    "ingredients": {
+      "R": { "type": "item", "code": "game:metalbit-copper", "quantity": 10 },
+      "F": { "type": "block", "code": "game:linen-normal-down" },
+      "T": { "type": "item", "code": "game:charcoal", "quantity": 6 },
+      "L": { "type": "item", "code": "game:metalbit-tinbronze", "quantity": 10 },
+      "G": { "type": "item", "code": "game:hide-scraped-*" }
+    },
+    "output": { "type": "item", "code": "itemrarity:tier-3", "quantity": 1 }
+  },
+  {
+    "ingredientPattern": "R,F,T,L,G,L",
+    "width": 3,
+    "height": 2,
+    "ingredients": {
+      "R": { "type": "item", "code": "game:metalbit-tinbronze", "quantity": 10 },
+      "F": { "type": "item", "code": "game:leather-normal-plain", "quantity": 3 },
+      "T": { "type": "item", "code": "game:metalbit-copper", "quantity": 10 },
+      "L": { "type": "item", "code": "game:metalbit-iron", "quantity": 10 },
+      "G": { "type": "item", "code": "game:gear-temporal" }
+    },
+    "output": { "type": "item", "code": "itemrarity:tier-4", "quantity": 1 }
+  },
+  {
+    "ingredientPattern": "R,F,T,L,G,L",
+    "width": 3,
+    "height": 2,
+    "ingredients": {
+      "R": { "type": "item", "code": "game:metalbit-tinbronze", "quantity": 10 },
+      "F": { "type": "item", "code": "game:leather-normal-plain", "quantity": 6 },
+      "T": { "type": "item", "code": "game:metalbit-iron", "quantity": 10 },
+      "L": { "type": "item", "code": "game:metalbit-steel", "quantity": 15 },
+      "G": { "type": "item", "code": "game:gear-temporal" }
+    },
+    "output": { "type": "item", "code": "itemrarity:tier-5", "quantity": 1 }
+  },
+  {
+    "ingredientPattern": "A,C,T,I,Z,B,G,F,S",
+    "width": 3,
+    "height": 3,
+    "ingredients": {
+      "A": { "type": "item", "code": "game:flint", "quantity": 20 },
+      "C": { "type": "item", "code": "game:metalbit-copper", "quantity": 20 },
+      "T": { "type": "item", "code": "game:metalbit-tinbronze", "quantity": 20 },
+      "I": { "type": "item", "code": "game:metalbit-iron", "quantity": 20 },
+      "Z": { "type": "item", "code": "game:gear-temporal" },
+      "B": { "type": "item", "code": "game:metalbit-steel", "quantity": 20 },
+      "G": { "type": "item", "code": "game:metalbit-gold", "quantity": 20 },
+      "F": { "type": "item", "code": "game:charcoal", "quantity": 20 },
+      "S": { "type": "item", "code": "game:metalbit-silver", "quantity": 20 }
+    },
+    "output": { "type": "item", "code": "itemrarity:tier-1000", "quantity": 1 }
+  }
+]
