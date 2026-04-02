@@ -2,3 +2,21 @@
 *.zip
 ReleasesStable
 TestMod
+
+# .NET build output
+**/bin/
+**/obj/
+**/[Dd]ebug/
+**/[Rr]elease/
+
+# Local tooling and IDE folders
+**/.dotnet/
+**/.nuget/
+**/.vs/
+**/.vscode/
+**/.idea/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
