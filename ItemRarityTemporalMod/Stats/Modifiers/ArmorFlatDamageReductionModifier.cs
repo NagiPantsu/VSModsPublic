@@ -1,0 +1,26 @@
+﻿using ItemRarity.Attributes;
+using ItemRarity.Rarities;
+using Vintagestory.API.Common;
+using Vintagestory.API.Datastructures;
+using Vintagestory.GameContent;
+
+namespace ItemRarity.Stats.Modifiers;
+
+public sealed class ArmorFlatDamageReductionModifier : IStatsModifier
+{
+    public bool IsSuitable(ItemStack itemStack)
+    {
+        var slot = new DummySlot(itemStack);
+        var supplier = itemStack.Collectible.GetCollectibleInterface<IWearableStatsSupplier>();
+        return supplier != null && supplier.IsArmorType(slot) && supplier.GetProtectionModifiers(slot) != null;
+    }
+
+    public void Apply(RarityModel rarityModel, ItemStack itemStack, ITreeAttribute modAttributes)
+    {
+        var flatRedMul = rarityModel.ArmorFlatDamageReductionMultiplier.Random;
+        var perTierFlatProtMul = rarityModel.ArmorPerTierFlatDamageProtectionLossMultiplier.Random;
+
+        Attribute.ArmorFlatDamageReductionMultiplier.SetFloat(modAttributes, flatRedMul);
+        Attribute.ArmorPerTierFlatDamageProtectionLossMultiplier.SetFloat(modAttributes, perTierFlatProtMul);
+    }
+}
