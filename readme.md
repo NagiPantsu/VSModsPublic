@@ -1,12 +1,17 @@
-# NagiPantsu/VSMods
+## NagiPantsu/VSMods
 
-This repository contains various mods created for the game [Vintage Story](https://www.vintagestory.at/). 
+Repo for various mods created for Vintage Story(https://www.vintagestory.at/). Mainly for updating mods that I like to newer versions of the game.
 
-## Modules
+## Available mods:
 
-- **IceIsCellarMod**: [Description pending]
-- **ItemRarityTemporalMod**: Introduces item rarity mechanics and modifiers into the game.
+- **IceIsCellarMod**: Packed Glacier Ice and selected wood blocks can now be used as cellar material.
+- **ItemRarityTemporalMod**: Introduces item rarity mechanics and modifiers into the game. Forked from https://github.com/raevendev/ItemRarity
 
 ## Development
 
-These mods are managed locally and built directly for testing in-game. Releases are stored locally and will be provided as complete mod packages.
+Mods are managed locally and built directly for testing in-game. Releases will be provided as .zip packages at https://mods.vintagestory.at/.
+
+## License
+
+Ice is Cellar has a MIT license. Do whatever you want with it, just don't claim you made it.
+ItemRarityTemporalMod inherits the license of the original mod, which is LGPL-3.0-or-later.
