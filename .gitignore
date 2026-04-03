@@ -15,6 +15,8 @@ TestMod
 **/.vs/
 **/.vscode/
 **/.idea/
+mdNotes/
+ReleasesStable/
 
 # User-specific files
 *.user
