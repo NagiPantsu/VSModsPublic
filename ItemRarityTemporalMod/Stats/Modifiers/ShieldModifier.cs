@@ -29,7 +29,7 @@ public sealed class ShieldModifier : IStatsModifier
             {
                 // Convert the JSON definition from the collectible into a live TreeAttribute
                 // No more CS0266 hehehe.
-                itemStack.Attributes["shield"] = baseShieldJson.AsObject<TreeAttribute>();
+                itemStack.Attributes["shield"] = baseShieldJson.ToAttribute() as ITreeAttribute;
             }
             else if (itemStack.Collectible is ItemShield shield)
             {
