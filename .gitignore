@@ -17,6 +17,8 @@ TestMod
 **/.idea/
 mdNotes/
 ReleasesStable/
+vsapi_source/
+vsmod_source/
 
 # User-specific files
 *.user
