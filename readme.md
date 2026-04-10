@@ -4,7 +4,9 @@ Repo for various mods created for Vintage Story(https://www.vintagestory.at/). M
 
 ## Available mods:
 
+- **Crop Forecaster**: It allows players who plant crops to see immediately via the block interface (HUD) whether their crops will mature safely, or if they are doomed to freeze or burn up due to temperature extremes before they can be harvested.
 - **IceIsCellarMod**: Packed Glacier Ice and selected wood blocks can now be used as cellar material.
+- **IceIsCellarMod_1.21.6**: Packed Glacier Ice and selected wood blocks can now be used as cellar material. For Vintage Story 1.21.6
 - **ItemRarityTemporalMod**: Introduces item rarity mechanics and modifiers into the game. Forked from https://github.com/raevendev/ItemRarity
 
 ## Development

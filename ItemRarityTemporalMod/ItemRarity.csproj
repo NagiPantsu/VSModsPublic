@@ -6,7 +6,7 @@
         <OutputPath>bin\$(Configuration)\Mods\mod</OutputPath>
         <LangVersion>13</LangVersion>
         <Nullable>enable</Nullable>
-        <GameDir>C:\Users\soure\AppData\Roaming\VSLGameVersions\1.22.0-rc.7</GameDir>
+        <GameDir>$(AppData)\VSLGameVersions\1.22.0-rc.7</GameDir>
     </PropertyGroup>
 
     <ItemGroup>

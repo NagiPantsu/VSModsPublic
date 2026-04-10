@@ -7,7 +7,7 @@
     <AssemblyName>IceCellarMod</AssemblyName>
     <RootNamespace>IceCellarMod</RootNamespace>
 
-    <GameDir>C:\Users\soure\AppData\Roaming\VSLGameVersions\1.22.0-rc.6</GameDir>
+    <GameDir>$(AppData)\VSLGameVersions\1.22.0-rc.6</GameDir>
   </PropertyGroup>
 
   <ItemGroup>
