@@ -1,13 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- 1.22 requires .NET 10 -->
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <AssemblyName>IceCellarMod</AssemblyName>
-    <RootNamespace>IceCellarMod</RootNamespace>
+    <AssemblyName>CropForecaster</AssemblyName>
+    <RootNamespace>CropForecaster</RootNamespace>
 
-    <GameDir>$(AppData)\VSLGameVersions\1.22.0-rc.8</GameDir>
+    <GameDir>$(AppData)\VSLGameVersions\1.21.6</GameDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,17 +22,6 @@
       <HintPath>$(GameDir)\Mods\VSSurvivalMod.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>$(GameDir)\Lib\Newtonsoft.Json.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Lib.Harmony" Version="2.3.3">
-      <PrivateAssets>none</PrivateAssets>
-      <IncludeAssets>all</IncludeAssets>
-    </PackageReference>
   </ItemGroup>
 
 </Project>
