@@ -1,0 +1,11 @@
+{
+  "type": "code",
+  "modid": "cropforecaster",
+  "version": "1.0.5",
+  "name": "Crop Forecaster",
+  "authors": [ "NagiPantsu" ],
+  "description": "Predicts crop viability dynamically directly in the Block Info HUD. For 1.21.7",
+  "dependencies": {
+    "game": "1.21.7"
+  }
+}

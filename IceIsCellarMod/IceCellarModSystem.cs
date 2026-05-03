@@ -16,7 +16,33 @@ namespace IceCellarMod
         public float TemperatureBonus = 5.0f;
         public float MinPerishRate = 0.1f;
         public float LightPenaltyMultiplier = 0.5f;
+        public string[] CoolingBlockCodes = IceCellarConfigDefaults.CoolingBlockCodes;
+        public string[] CoolingBlockCodePatterns = IceCellarConfigDefaults.CoolingBlockCodePatterns;
     }
+
+    public static class IceCellarConfigDefaults
+    {
+        public static readonly string[] CoolingBlockCodes =
+        {
+            "iceiscellar:icebricks",
+            "game:packedglacierice"
+        };
+
+        public static readonly string[] CoolingBlockCodePatterns =
+        {
+            "game:agedwallpaperplanks-*",
+            "game:log-*",
+            "game:carvedlog-*",
+            "game:debarkedlog-*",
+            "game:logquad-placed-*",
+            "game:logquad-debarked-*",
+            "game:logquad-barkedcorner-*",
+            "game:logquad-debarkedcorner-*",
+            "game:logsection-*",
+            "game:planks-*"
+        };
+    }
+
     public class IceRoomEntry 
     {
         public Cuboidi Location;
@@ -61,6 +87,9 @@ namespace IceCellarMod
 
     public class IceCellarModSystem : ModSystem
     {
+        const string ConfigFileName = "iceiscellarmodconfig.json";
+        const string LegacyConfigFileName = "coolingmodconfig.json";
+
         ICoreAPI api = null!;
         IceCellarConfig config = null!;
 
@@ -72,6 +101,11 @@ namespace IceCellarMod
             this.api = api;
             api.RegisterBlockBehaviorClass("IceCooling", typeof(BlockBehaviorIceCooling));
             config = LoadOrCreateConfig();
+        }
+
+        public override void AssetsFinalize(ICoreAPI api)
+        {
+            AttachCoolingBehaviorsFromConfig(api);
         }
 
         public override void StartServerSide(ICoreServerAPI sapi)
@@ -161,36 +195,66 @@ namespace IceCellarMod
 
         IceCellarConfig LoadOrCreateConfig()
         {
-            const string configFileName = "coolingmodconfig.json";
-
             try
             {
-                IceCellarConfig? loadedConfig = api.LoadModConfig<IceCellarConfig>(configFileName);
+                IceCellarConfig? loadedConfig = api.LoadModConfig<IceCellarConfig>(ConfigFileName);
                 if (loadedConfig != null)
                 {
-                    bool configMissingFields = ConfigIsMissingFields(configFileName, nameof(IceCellarConfig.LightPenaltyMultiplier));
-                    return SanitizeConfig(loadedConfig, configFileName, configMissingFields);
+                    bool configMissingFields = ConfigIsMissingFields(
+                        ConfigFileName,
+                        nameof(IceCellarConfig.LightPenaltyMultiplier),
+                        nameof(IceCellarConfig.CoolingBlockCodes),
+                        nameof(IceCellarConfig.CoolingBlockCodePatterns));
+
+                    return SanitizeConfig(loadedConfig, ConfigFileName, configMissingFields);
+                }
+
+                IceCellarConfig? legacyConfig = null;
+
+                try
+                {
+                    legacyConfig = api.LoadModConfig<IceCellarConfig>(LegacyConfigFileName);
+                }
+                catch (Exception legacyEx)
+                {
+                    api.Logger.Warning(
+                        "[IceCellar] Failed to load legacy config {0}, backing it up and generating {1}. Exception: {2}",
+                        LegacyConfigFileName,
+                        ConfigFileName,
+                        legacyEx);
+
+                    BackupBrokenConfig(LegacyConfigFileName);
+                }
+
+                if (legacyConfig != null)
+                {
+                    api.Logger.Notification(
+                        "[IceCellar] Migrating legacy config {0} to {1}.",
+                        LegacyConfigFileName,
+                        ConfigFileName);
+
+                    return SanitizeConfig(legacyConfig, ConfigFileName, true);
                 }
 
                 var defaultConfig = new IceCellarConfig();
-                api.StoreModConfig(defaultConfig, configFileName);
+                api.StoreModConfig(defaultConfig, ConfigFileName);
                 return defaultConfig;
             }
             catch (Exception ex)
             {
-                api.Logger.Warning("[IceCellar] Failed to load coolingmodconfig.json, backing it up and regenerating defaults. Exception: {0}", ex);
+                api.Logger.Warning("[IceCellar] Failed to load {0}, backing it up and regenerating defaults. Exception: {1}", ConfigFileName, ex);
 
-                BackupBrokenConfig(configFileName);
+                BackupBrokenConfig(ConfigFileName);
 
                 var defaultConfig = new IceCellarConfig();
 
                 try
                 {
-                    api.StoreModConfig(defaultConfig, configFileName);
+                    api.StoreModConfig(defaultConfig, ConfigFileName);
                 }
                 catch (Exception saveEx)
                 {
-                    api.Logger.Error("[IceCellar] Failed to write default coolingmodconfig.json after load failure. Exception: {0}", saveEx);
+                    api.Logger.Error("[IceCellar] Failed to write default {0} after load failure. Exception: {1}", ConfigFileName, saveEx);
                 }
 
                 return defaultConfig;
@@ -231,15 +295,27 @@ namespace IceCellarMod
                 changed = true;
             }
 
+            if (loadedConfig.CoolingBlockCodes == null)
+            {
+                loadedConfig.CoolingBlockCodes = IceCellarConfigDefaults.CoolingBlockCodes;
+                changed = true;
+            }
+
+            if (loadedConfig.CoolingBlockCodePatterns == null)
+            {
+                loadedConfig.CoolingBlockCodePatterns = IceCellarConfigDefaults.CoolingBlockCodePatterns;
+                changed = true;
+            }
+
             // Extreme temperature bonuses may be intentional for modpacks, so only warn.
             if (loadedConfig.TemperatureBonus < 0f || loadedConfig.TemperatureBonus > 20f)
             {
-                api.Logger.Warning("[IceCellar] coolingmodconfig.json has an unusual TemperatureBonus value: {0}", loadedConfig.TemperatureBonus);
+                api.Logger.Warning("[IceCellar] {0} has an unusual TemperatureBonus value: {1}", configFileName, loadedConfig.TemperatureBonus);
             }
 
             if (!changed) return loadedConfig;
 
-            api.Logger.Warning("[IceCellar] Updated coolingmodconfig.json with sanitized or newly added values and rewrote the file.");
+            api.Logger.Warning("[IceCellar] Updated {0} with sanitized or newly added values and rewrote the file.", configFileName);
 
             try
             {
@@ -247,10 +323,120 @@ namespace IceCellarMod
             }
             catch (Exception saveEx)
             {
-                api.Logger.Error("[IceCellar] Failed to write sanitized coolingmodconfig.json. Exception: {0}", saveEx);
+                api.Logger.Error("[IceCellar] Failed to write sanitized {0}. Exception: {1}", configFileName, saveEx);
             }
 
             return loadedConfig;
+        }
+
+        void AttachCoolingBehaviorsFromConfig(ICoreAPI api)
+        {
+            var matchedBlocks = new HashSet<Block>();
+            int added = 0;
+
+            foreach (string codeText in config.CoolingBlockCodes ?? Array.Empty<string>())
+            {
+                if (string.IsNullOrWhiteSpace(codeText)) continue;
+
+                Block? block = api.World.GetBlock(new AssetLocation(codeText));
+                if (block == null || block.Id == 0)
+                {
+                    api.Logger.Warning("[IceCellar] CoolingBlockCodes entry did not resolve to a block: {0}", codeText);
+                    continue;
+                }
+
+                matchedBlocks.Add(block);
+            }
+
+            foreach (string pattern in config.CoolingBlockCodePatterns ?? Array.Empty<string>())
+            {
+                if (string.IsNullOrWhiteSpace(pattern)) continue;
+
+                int patternMatches = 0;
+
+                foreach (Block block in api.World.Blocks)
+                {
+                    if (block?.Code == null || block.Id == 0) continue;
+
+                    if (!MatchesWildcard(block.Code.ToString(), pattern)) continue;
+
+                    matchedBlocks.Add(block);
+                    patternMatches++;
+                }
+
+                if (patternMatches == 0)
+                {
+                    api.Logger.Warning("[IceCellar] CoolingBlockCodePatterns entry matched no blocks: {0}", pattern);
+                }
+            }
+
+            foreach (Block block in matchedBlocks)
+            {
+                if (HasIceCoolingBehavior(block)) continue;
+
+                BlockBehavior[] behaviors = block.BlockBehaviors ?? Array.Empty<BlockBehavior>();
+                Array.Resize(ref behaviors, behaviors.Length + 1);
+                behaviors[behaviors.Length - 1] = new BlockBehaviorIceCooling(block);
+                block.BlockBehaviors = behaviors;
+
+                added++;
+            }
+
+            api.Logger.Notification("[IceCellar] Added IceCooling behavior to {0} configured blocks.", added);
+        }
+
+        static bool HasIceCoolingBehavior(Block block)
+        {
+            if (block.BlockBehaviors == null) return false;
+
+            foreach (BlockBehavior behavior in block.BlockBehaviors)
+            {
+                if (behavior is BlockBehaviorIceCooling) return true;
+            }
+
+            return false;
+        }
+
+        static bool MatchesWildcard(string text, string pattern)
+        {
+            int textIndex = 0;
+            int patternIndex = 0;
+            int starIndex = -1;
+            int matchIndex = 0;
+
+            while (textIndex < text.Length)
+            {
+                if (patternIndex < pattern.Length &&
+                    (pattern[patternIndex] == text[textIndex] || pattern[patternIndex] == '*'))
+                {
+                    if (pattern[patternIndex] == '*')
+                    {
+                        starIndex = patternIndex++;
+                        matchIndex = textIndex;
+                    }
+                    else
+                    {
+                        patternIndex++;
+                        textIndex++;
+                    }
+                }
+                else if (starIndex != -1)
+                {
+                    patternIndex = starIndex + 1;
+                    textIndex = ++matchIndex;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            while (patternIndex < pattern.Length && pattern[patternIndex] == '*')
+            {
+                patternIndex++;
+            }
+
+            return patternIndex == pattern.Length;
         }
 
         bool ConfigIsMissingFields(string configFileName, params string[] fieldNames)
@@ -272,7 +458,7 @@ namespace IceCellarMod
             }
             catch (Exception ex)
             {
-                api.Logger.Warning("[IceCellar] Failed checking coolingmodconfig.json for missing fields. Exception: {0}", ex);
+                api.Logger.Warning("[IceCellar] Failed checking {0} for missing fields. Exception: {1}", configFileName, ex);
             }
 
             return false;
@@ -295,12 +481,12 @@ namespace IceCellarMod
             }
             catch (Exception backupEx)
             {
-                api.Logger.Error("[IceCellar] Failed to back up invalid coolingmodconfig.json. Exception: {0}", backupEx);
+                api.Logger.Error("[IceCellar] Failed to back up invalid {0}. Exception: {1}", configFileName, backupEx);
             }
         }
 
         // Surface-only scan with early exit for performance.
-        // A room qualifies when enough cooling-wall blocks are from the patched
+        // A room qualifies when enough cooling-wall blocks are from the configured
         // materials this mod recognizes.
         bool ComputeIsIceCellar(Room room, BlockPos pos, IWorldAccessor world)
         {

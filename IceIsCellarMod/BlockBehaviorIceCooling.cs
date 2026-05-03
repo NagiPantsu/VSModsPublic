@@ -7,12 +7,12 @@ namespace IceCellarMod
     /// When attached to a block, this makes that block count as a "cooling wall"
     /// in the game's cellar system, the same way stone or soil does.
     ///
-    /// This behavior is assigned through JSON patches to the block families
-    /// this mod wants to contribute to cellar cooling.
+    /// This behavior is assigned directly by block JSON or from mod config
+    /// during asset finalization.
     /// </summary>
     public class BlockBehaviorIceCooling : BlockBehavior
     {
-        // Returning -1 makes patched blocks behave like vanilla cooling materials
+        // Returning -1 makes configured blocks behave like vanilla cooling materials
         // for cellar insulation scoring.
         const int CoolingRetentionValue = -1;
 

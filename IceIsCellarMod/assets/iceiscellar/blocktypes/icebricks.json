@@ -1,0 +1,31 @@
+{
+    code: "icebricks",
+	class: "Block",
+	attributes: {
+		canChisel: true
+	},
+	behaviors: [
+		{ name: "IceCooling" }
+	],
+	renderpass: "Opaque",
+	creativeinventory: { "general": ["*"], "terrain": ["*"] },
+	blockmaterial: "Ice",
+	replaceable: 950,
+	lightAbsorption: 99,
+	textures: { 
+		all: { base: "iceiscellar:block/liquid/ice/icebricks*" } 
+	},
+	resistance: 0.5,
+	sideopaque: {
+		all: true
+	},
+	dragMultiplier: 0.02,
+	materialDensity: 800,
+	heldTpIdleAnimation: "holdbothhandslarge", heldRightReadyAnimation: "heldblockready", heldTpUseAnimation: "twohandplaceblock",
+	drops: [{ code: "iceiscellar:icebricks" }],
+	tpHandTransform: {
+		translation: { x: -1.23, y: -0.91, z: -0.8 },
+		rotation: { x: -2, y: 25, z: -78 },
+		scale: 0.4
+	}
+}

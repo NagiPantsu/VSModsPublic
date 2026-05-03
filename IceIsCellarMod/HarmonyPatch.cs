@@ -10,6 +10,7 @@ namespace IceCellarMod
 {
     public class HarmonyPatchLoader : ModSystem
     {
+        static bool patchesApplied;
         Harmony? harmony;
 
         public override double ExecuteOrder() => 0.04;
@@ -22,6 +23,12 @@ namespace IceCellarMod
 
         void ApplyPatches(ICoreAPI api)
         {
+            if (patchesApplied)
+            {
+                api.Logger.Notification("[IceCellar] Harmony patches already applied, skipping duplicate patch pass.");
+                return;
+            }
+
             TransitionRatePatch.ModSystem = api.ModLoader.GetModSystem<IceCellarModSystem>();
 
             harmony = new Harmony("vs.icecellar");
@@ -29,6 +36,7 @@ namespace IceCellarMod
             try
             {
                 harmony.PatchAll(typeof(HarmonyPatchLoader).Assembly);
+                patchesApplied = true;
                 api.Logger.Notification("[IceCellar] Harmony patches applied.");
             }
             catch (Exception ex)
@@ -39,7 +47,10 @@ namespace IceCellarMod
 
         public override void Dispose()
         {
-            harmony?.UnpatchAll("vs.icecellar");
+            if (harmony == null) return;
+
+            harmony.UnpatchAll("vs.icecellar");
+            patchesApplied = false;
         }
     }
 

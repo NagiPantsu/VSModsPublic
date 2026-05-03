@@ -19,6 +19,7 @@ mdNotes/
 ReleasesStable/
 vsapi_source/
 vsmod_source/
+.tmp-vssurvivalmod/
 
 # User-specific files
 *.user
