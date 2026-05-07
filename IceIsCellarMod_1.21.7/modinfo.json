@@ -1,7 +1,7 @@
 {
     "type": "code",
     "modid": "iceiscellar",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "name": "Ice Is Cellar",
     "description": "Packed glacier ice and selected wood blocks count as valid cellar cooling blocks. If at least half of a cellar's cooling walls use those materials, food gets an additional -5C perish-temperature bonus on top of the normal cellar effect.",
     "authors": [
@@ -9,6 +9,6 @@
     ],
     "side": "Universal",
     "dependencies": {
-        "game": "1.21.6"
+        "game": "1.21.7"
     }
 }

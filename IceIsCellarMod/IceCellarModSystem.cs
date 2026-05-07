@@ -16,56 +16,65 @@ namespace IceCellarMod
         public float TemperatureBonus = 5.0f;
         public float MinPerishRate = 0.1f;
         public float LightPenaltyMultiplier = 0.5f;
-    }
-    public class IceRoomEntry 
-    {
-        public Cuboidi Location;
-        public bool IsIceCellar;
-
-        public IceRoomEntry(Room room, bool isIceCellar)
-        {
-            Location = room.Location;
-            IsIceCellar = isIceCellar;
-        }
+        public string[] CoolingBlockCodes = IceCellarConfigDefaults.CoolingBlockCodes;
+        public string[] CoolingBlockCodePatterns = IceCellarConfigDefaults.CoolingBlockCodePatterns;
     }
 
-    //Stupid rooms can get funky so we stop using string keys.
-    struct RoomKey
+    public static class IceCellarConfigDefaults
     {
-        public readonly int X1, Y1, Z1;
-        public readonly int X2, Y2, Z2;
-
-        public RoomKey(Room room)
+        public static readonly string[] CoolingBlockCodes =
         {
-            X1 = room.Location.Start.X;
-            Y1 = room.Location.Start.Y;
-            Z1 = room.Location.Start.Z;
+            "iceiscellar:icebricks",
+            "game:packedglacierice"
+        };
 
-            X2 = room.Location.End.X;
-            Y2 = room.Location.End.Y;
-            Z2 = room.Location.End.Z;
-        }
-
-        public override int GetHashCode()
+        public static readonly string[] CoolingBlockCodePatterns =
         {
-            return HashCode.Combine(X1, Y1, Z1, X2, Y2, Z2);
-        }
+            "game:agedwallpaperplanks-*",
+            "game:log-*",
+            "game:carvedlog-*",
+            "game:debarkedlog-*",
+            "game:logquad-placed-*",
+            "game:logquad-debarked-*",
+            "game:logquad-barkedcorner-*",
+            "game:logquad-debarkedcorner-*",
+            "game:logsection-*",
+            "game:planks-*"
+        };
+    }
 
-        public override bool Equals(object? obj)
-        {
-            return obj is RoomKey other &&
-                X1 == other.X1 && Y1 == other.Y1 && Z1 == other.Z1 &&
-                X2 == other.X2 && Y2 == other.Y2 && Z2 == other.Z2;
-        }
+    // Room objects can be rebuilt by the game, but the bounds are the part we
+    // actually care about. A record struct keeps the key small without the old
+    // hand-written equality/hash boilerplate.
+    readonly record struct RoomKey(
+        int X1,
+        int Y1,
+        int Z1,
+        int X2,
+        int Y2,
+        int Z2)
+    {
+        public RoomKey(Room room) : this(
+            room.Location.Start.X,
+            room.Location.Start.Y,
+            room.Location.Start.Z,
+            room.Location.End.X,
+            room.Location.End.Y,
+            room.Location.End.Z)
+        { }
     }
 
     public class IceCellarModSystem : ModSystem
     {
+        const string ConfigFileName = "iceiscellarmodconfig.json";
+        const string LegacyConfigFileName = "coolingmodconfig.json";
+
         ICoreAPI api = null!;
         IceCellarConfig config = null!;
 
-        // Updated to use unique keys
-        readonly Dictionary<RoomKey, IceRoomEntry> iceRoomCache = new();
+        // Cache only the final yes/no result. We do not need to keep the whole
+        // room entry around now that block changes simply clear the cache.
+        readonly Dictionary<RoomKey, bool> iceRoomCache = new();
 
         public override void Start(ICoreAPI api)
         {
@@ -74,30 +83,20 @@ namespace IceCellarMod
             config = LoadOrCreateConfig();
         }
 
-        public override void StartServerSide(ICoreServerAPI sapi)
+        public override void AssetsFinalize(ICoreAPI api)
         {
-            sapi.Event.DidBreakBlock += (byPlayer, oldBlockId, blockSel)
-                => InvalidateCacheAt(blockSel.Position);
-            sapi.Event.DidPlaceBlock += (byPlayer, oldblockId, blockSel, withItemStack)
-                => InvalidateCacheAt(blockSel.Position);    
+            AttachCoolingBehaviorsFromConfig(api);
         }
 
-        void InvalidateCacheAt(BlockPos pos)
+        public override void StartServerSide(ICoreServerAPI sapi)
         {
-           var keysToRemove = new List<RoomKey>();
-
-            foreach (var entry in iceRoomCache)
-            {
-                if (entry.Value.Location.Contains(pos.X, pos.Y, pos.Z))
-                {
-                    keysToRemove.Add(entry.Key);
-                }
-            }
-
-            foreach (var key in keysToRemove)
-            {
-                iceRoomCache.Remove(key);
-            }
+            // A place/break can change room shape, cooling walls, or the ice
+            // ratio. Clearing the whole cache is simpler and cheap compared to
+            // trying to surgically find every affected room.
+            sapi.Event.DidBreakBlock += (byPlayer, oldBlockId, blockSel)
+                => iceRoomCache.Clear();
+            sapi.Event.DidPlaceBlock += (byPlayer, oldblockId, blockSel, withItemStack)
+                => iceRoomCache.Clear();
         }
 
         public float? GetIceCellarPerishRateOverride(BlockPos pos, IWorldAccessor world)
@@ -112,14 +111,13 @@ namespace IceCellarMod
             // Use room bounds as unique identifier
             RoomKey roomKey = new RoomKey(room);
 
-            if (!iceRoomCache.TryGetValue(roomKey, out IceRoomEntry? entry))
+            if (!iceRoomCache.TryGetValue(roomKey, out bool isIceCellar))
             {
-                bool isIce = ComputeIsIceCellar(room, pos, world);
-                entry = new IceRoomEntry(room, isIce);
-                iceRoomCache[roomKey] = entry;
+                isIceCellar = ComputeIsIceCellar(room, pos, world);
+                iceRoomCache[roomKey] = isIceCellar;
             }
 
-            if (!entry.IsIceCellar) return null;
+            if (!isIceCellar) return null;
 
             float outsideTemp = world.BlockAccessor
                 .GetClimateAt(pos, EnumGetClimateMode.ForSuppliedDate_TemperatureOnly,
@@ -161,36 +159,66 @@ namespace IceCellarMod
 
         IceCellarConfig LoadOrCreateConfig()
         {
-            const string configFileName = "coolingmodconfig.json";
-
             try
             {
-                IceCellarConfig? loadedConfig = api.LoadModConfig<IceCellarConfig>(configFileName);
+                IceCellarConfig? loadedConfig = api.LoadModConfig<IceCellarConfig>(ConfigFileName);
                 if (loadedConfig != null)
                 {
-                    bool configMissingFields = ConfigIsMissingFields(configFileName, nameof(IceCellarConfig.LightPenaltyMultiplier));
-                    return SanitizeConfig(loadedConfig, configFileName, configMissingFields);
+                    bool configMissingFields = ConfigIsMissingFields(
+                        ConfigFileName,
+                        nameof(IceCellarConfig.LightPenaltyMultiplier),
+                        nameof(IceCellarConfig.CoolingBlockCodes),
+                        nameof(IceCellarConfig.CoolingBlockCodePatterns));
+
+                    return SanitizeConfig(loadedConfig, ConfigFileName, configMissingFields);
+                }
+
+                IceCellarConfig? legacyConfig = null;
+
+                try
+                {
+                    legacyConfig = api.LoadModConfig<IceCellarConfig>(LegacyConfigFileName);
+                }
+                catch (Exception legacyEx)
+                {
+                    api.Logger.Warning(
+                        "[IceCellar] Failed to load legacy config {0}, backing it up and generating {1}. Exception: {2}",
+                        LegacyConfigFileName,
+                        ConfigFileName,
+                        legacyEx);
+
+                    BackupBrokenConfig(LegacyConfigFileName);
+                }
+
+                if (legacyConfig != null)
+                {
+                    api.Logger.Notification(
+                        "[IceCellar] Migrating legacy config {0} to {1}.",
+                        LegacyConfigFileName,
+                        ConfigFileName);
+
+                    return SanitizeConfig(legacyConfig, ConfigFileName, true);
                 }
 
                 var defaultConfig = new IceCellarConfig();
-                api.StoreModConfig(defaultConfig, configFileName);
+                api.StoreModConfig(defaultConfig, ConfigFileName);
                 return defaultConfig;
             }
             catch (Exception ex)
             {
-                api.Logger.Warning("[IceCellar] Failed to load coolingmodconfig.json, backing it up and regenerating defaults. Exception: {0}", ex);
+                api.Logger.Warning("[IceCellar] Failed to load {0}, backing it up and regenerating defaults. Exception: {1}", ConfigFileName, ex);
 
-                BackupBrokenConfig(configFileName);
+                BackupBrokenConfig(ConfigFileName);
 
                 var defaultConfig = new IceCellarConfig();
 
                 try
                 {
-                    api.StoreModConfig(defaultConfig, configFileName);
+                    api.StoreModConfig(defaultConfig, ConfigFileName);
                 }
                 catch (Exception saveEx)
                 {
-                    api.Logger.Error("[IceCellar] Failed to write default coolingmodconfig.json after load failure. Exception: {0}", saveEx);
+                    api.Logger.Error("[IceCellar] Failed to write default {0} after load failure. Exception: {1}", ConfigFileName, saveEx);
                 }
 
                 return defaultConfig;
@@ -231,15 +259,27 @@ namespace IceCellarMod
                 changed = true;
             }
 
+            if (loadedConfig.CoolingBlockCodes == null)
+            {
+                loadedConfig.CoolingBlockCodes = IceCellarConfigDefaults.CoolingBlockCodes;
+                changed = true;
+            }
+
+            if (loadedConfig.CoolingBlockCodePatterns == null)
+            {
+                loadedConfig.CoolingBlockCodePatterns = IceCellarConfigDefaults.CoolingBlockCodePatterns;
+                changed = true;
+            }
+
             // Extreme temperature bonuses may be intentional for modpacks, so only warn.
             if (loadedConfig.TemperatureBonus < 0f || loadedConfig.TemperatureBonus > 20f)
             {
-                api.Logger.Warning("[IceCellar] coolingmodconfig.json has an unusual TemperatureBonus value: {0}", loadedConfig.TemperatureBonus);
+                api.Logger.Warning("[IceCellar] {0} has an unusual TemperatureBonus value: {1}", configFileName, loadedConfig.TemperatureBonus);
             }
 
             if (!changed) return loadedConfig;
 
-            api.Logger.Warning("[IceCellar] Updated coolingmodconfig.json with sanitized or newly added values and rewrote the file.");
+            api.Logger.Warning("[IceCellar] Updated {0} with sanitized or newly added values and rewrote the file.", configFileName);
 
             try
             {
@@ -247,10 +287,72 @@ namespace IceCellarMod
             }
             catch (Exception saveEx)
             {
-                api.Logger.Error("[IceCellar] Failed to write sanitized coolingmodconfig.json. Exception: {0}", saveEx);
+                api.Logger.Error("[IceCellar] Failed to write sanitized {0}. Exception: {1}", configFileName, saveEx);
             }
 
             return loadedConfig;
+        }
+
+        void AttachCoolingBehaviorsFromConfig(ICoreAPI api)
+        {
+            var matchedBlocks = new HashSet<Block>();
+            int added = 0;
+
+            foreach (string codeText in config.CoolingBlockCodes ?? Array.Empty<string>())
+            {
+                if (string.IsNullOrWhiteSpace(codeText)) continue;
+
+                Block? block = api.World.GetBlock(new AssetLocation(codeText));
+                if (block == null || block.Id == 0)
+                {
+                    api.Logger.Warning("[IceCellar] CoolingBlockCodes entry did not resolve to a block: {0}", codeText);
+                    continue;
+                }
+
+                matchedBlocks.Add(block);
+            }
+
+            foreach (string pattern in config.CoolingBlockCodePatterns ?? Array.Empty<string>())
+            {
+                if (string.IsNullOrWhiteSpace(pattern)) continue;
+
+                // Let Vintage Story resolve wildcards. That keeps our config
+                // patterns aligned with the game's own block-code matching
+                // rules and avoids maintaining a second matcher here.
+                Block[] patternBlocks = api.World.SearchBlocks(new AssetLocation(pattern));
+                foreach (Block block in patternBlocks)
+                {
+                    if (block == null || block.Id == 0) continue;
+                    matchedBlocks.Add(block);
+                }
+
+                if (patternBlocks.Length == 0)
+                {
+                    api.Logger.Warning("[IceCellar] CoolingBlockCodePatterns entry matched no blocks: {0}", pattern);
+                }
+            }
+
+            foreach (Block block in matchedBlocks)
+            {
+                if (HasIceCoolingBehavior(block)) continue;
+
+                BlockBehavior[] behaviors = block.BlockBehaviors ?? Array.Empty<BlockBehavior>();
+                Array.Resize(ref behaviors, behaviors.Length + 1);
+                behaviors[behaviors.Length - 1] = new BlockBehaviorIceCooling(block);
+                block.BlockBehaviors = behaviors;
+
+                added++;
+            }
+
+            api.Logger.Notification("[IceCellar] Added IceCooling behavior to {0} configured blocks.", added);
+        }
+
+        static bool HasIceCoolingBehavior(Block block)
+        {
+            // Use the engine's behavior lookup instead of walking the behavior
+            // array ourselves. It is shorter and respects inherited behavior
+            // types if this ever grows a derived cooling behavior.
+            return block.GetBehavior(typeof(BlockBehaviorIceCooling), true) != null;
         }
 
         bool ConfigIsMissingFields(string configFileName, params string[] fieldNames)
@@ -272,7 +374,7 @@ namespace IceCellarMod
             }
             catch (Exception ex)
             {
-                api.Logger.Warning("[IceCellar] Failed checking coolingmodconfig.json for missing fields. Exception: {0}", ex);
+                api.Logger.Warning("[IceCellar] Failed checking {0} for missing fields. Exception: {1}", configFileName, ex);
             }
 
             return false;
@@ -295,12 +397,12 @@ namespace IceCellarMod
             }
             catch (Exception backupEx)
             {
-                api.Logger.Error("[IceCellar] Failed to back up invalid coolingmodconfig.json. Exception: {0}", backupEx);
+                api.Logger.Error("[IceCellar] Failed to back up invalid {0}. Exception: {1}", configFileName, backupEx);
             }
         }
 
         // Surface-only scan with early exit for performance.
-        // A room qualifies when enough cooling-wall blocks are from the patched
+        // A room qualifies when enough cooling-wall blocks are from the configured
         // materials this mod recognizes.
         bool ComputeIsIceCellar(Room room, BlockPos pos, IWorldAccessor world)
         {
@@ -381,18 +483,9 @@ namespace IceCellarMod
         // A block counts if it has the custom cooling behavior ONLY.
         public static bool IsIceCoolingBlock(Block? block)
         {
-            if (block == null) return false;
-
-            if (block.BlockBehaviors != null)
-            {
-                foreach (var b in block.BlockBehaviors)
-                {
-                    if (b is BlockBehaviorIceCooling)
-                        return true;
-                }
-            }
-
-            return false;
+            // Same lookup as attachment uses, so the room scan and the behavior
+            // injection path agree on what "has IceCooling" means.
+            return block?.GetBehavior(typeof(BlockBehaviorIceCooling), true) != null;
         }
     }
 }

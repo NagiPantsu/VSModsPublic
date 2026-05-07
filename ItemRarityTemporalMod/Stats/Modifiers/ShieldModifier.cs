@@ -39,7 +39,15 @@ public sealed class ShieldModifier : IStatsModifier
                 {
                     var type = shield.GetType();
                     var prop = type.GetProperty("DamageAbsorption");
-                    if (prop != null) dmgAbs = (float)prop.GetValue(shield);
+                    var damageAbsorptionValue = prop?.GetValue(shield);
+                    if (damageAbsorptionValue is float damageAbsorptionFloat)
+                    {
+                        dmgAbs = damageAbsorptionFloat;
+                    }
+                    else if (damageAbsorptionValue is double damageAbsorptionDouble)
+                    {
+                        dmgAbs = (float)damageAbsorptionDouble;
+                    }
                 } 
                 catch {}
                 defaultShieldTree.SetFloat("damageAbsorption", dmgAbs);

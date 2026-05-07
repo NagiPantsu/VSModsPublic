@@ -174,7 +174,6 @@ public static class GetHeldItemInfoPatch
     private static void AppendShieldInfo(ItemStack itemStack, StringBuilder sb)
     {
         var shieldJson = itemStack.Collectible.Attributes?["shield"];
-        ITreeAttribute shieldTree = itemStack.Attributes?.GetTreeAttribute("shield");
 
         float activeMeleeChance = 0f;
         float passiveMeleeChance = 0f;

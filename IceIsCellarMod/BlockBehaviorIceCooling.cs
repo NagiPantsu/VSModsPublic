@@ -7,12 +7,12 @@ namespace IceCellarMod
     /// When attached to a block, this makes that block count as a "cooling wall"
     /// in the game's cellar system, the same way stone or soil does.
     ///
-    /// This behavior is assigned through JSON patches to the block families
-    /// this mod wants to contribute to cellar cooling.
+    /// This behavior is assigned directly by block JSON or from mod config
+    /// during asset finalization.
     /// </summary>
     public class BlockBehaviorIceCooling : BlockBehavior
     {
-        // Returning -1 makes patched blocks behave like vanilla cooling materials
+        // Returning -1 makes configured blocks behave like vanilla cooling materials
         // for cellar insulation scoring.
         const int CoolingRetentionValue = -1;
 
@@ -29,18 +29,13 @@ namespace IceCellarMod
             EnumRetentionType type,
             ref EnumHandling handling)
         {
-            // Only affect solid faces. Partially solid shapes should still return 0
-            // on open faces, matching vanilla retention behavior.
-            if (block.SideSolid[facing.Index])
-            {
-                // PreventDefault means: use our return value, ignore other behaviours
-                handling = EnumHandling.PreventDefault;
-                return CoolingRetentionValue;
-            }
+            // IceCooling is only meant to affect cellar heat retention. Sound
+            // and water checks should keep the block's normal vanilla behavior.
+            if (type != EnumRetentionType.Heat || !block.SideSolid[facing.Index]) return 0;
 
-            // Non-solid face: let the game decide (returns 0 normally)
-            handling = EnumHandling.PassThrough;
-            return 0;
+            // PreventDefault means: use our return value, ignore other behaviours.
+            handling = EnumHandling.PreventDefault;
+            return CoolingRetentionValue;
         }
     }
 }
