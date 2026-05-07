@@ -43,46 +43,25 @@ namespace IceCellarMod
         };
     }
 
-    public class IceRoomEntry 
+    // Room objects can be rebuilt by the game, but the bounds are the part we
+    // actually care about. A record struct keeps the key small without the old
+    // hand-written equality/hash boilerplate.
+    readonly record struct RoomKey(
+        int X1,
+        int Y1,
+        int Z1,
+        int X2,
+        int Y2,
+        int Z2)
     {
-        public Cuboidi Location;
-        public bool IsIceCellar;
-
-        public IceRoomEntry(Room room, bool isIceCellar)
-        {
-            Location = room.Location;
-            IsIceCellar = isIceCellar;
-        }
-    }
-
-    //Stupid rooms can get funky so we stop using string keys.
-    struct RoomKey
-    {
-        public readonly int X1, Y1, Z1;
-        public readonly int X2, Y2, Z2;
-
-        public RoomKey(Room room)
-        {
-            X1 = room.Location.Start.X;
-            Y1 = room.Location.Start.Y;
-            Z1 = room.Location.Start.Z;
-
-            X2 = room.Location.End.X;
-            Y2 = room.Location.End.Y;
-            Z2 = room.Location.End.Z;
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(X1, Y1, Z1, X2, Y2, Z2);
-        }
-
-        public override bool Equals(object? obj)
-        {
-            return obj is RoomKey other &&
-                X1 == other.X1 && Y1 == other.Y1 && Z1 == other.Z1 &&
-                X2 == other.X2 && Y2 == other.Y2 && Z2 == other.Z2;
-        }
+        public RoomKey(Room room) : this(
+            room.Location.Start.X,
+            room.Location.Start.Y,
+            room.Location.Start.Z,
+            room.Location.End.X,
+            room.Location.End.Y,
+            room.Location.End.Z)
+        { }
     }
 
     public class IceCellarModSystem : ModSystem
@@ -93,8 +72,9 @@ namespace IceCellarMod
         ICoreAPI api = null!;
         IceCellarConfig config = null!;
 
-        // Updated to use unique keys
-        readonly Dictionary<RoomKey, IceRoomEntry> iceRoomCache = new();
+        // Cache only the final yes/no result. We do not need to keep the whole
+        // room entry around now that block changes simply clear the cache.
+        readonly Dictionary<RoomKey, bool> iceRoomCache = new();
 
         public override void Start(ICoreAPI api)
         {
@@ -110,28 +90,13 @@ namespace IceCellarMod
 
         public override void StartServerSide(ICoreServerAPI sapi)
         {
+            // A place/break can change room shape, cooling walls, or the ice
+            // ratio. Clearing the whole cache is simpler and cheap compared to
+            // trying to surgically find every affected room.
             sapi.Event.DidBreakBlock += (byPlayer, oldBlockId, blockSel)
-                => InvalidateCacheAt(blockSel.Position);
+                => iceRoomCache.Clear();
             sapi.Event.DidPlaceBlock += (byPlayer, oldblockId, blockSel, withItemStack)
-                => InvalidateCacheAt(blockSel.Position);    
-        }
-
-        void InvalidateCacheAt(BlockPos pos)
-        {
-           var keysToRemove = new List<RoomKey>();
-
-            foreach (var entry in iceRoomCache)
-            {
-                if (entry.Value.Location.Contains(pos.X, pos.Y, pos.Z))
-                {
-                    keysToRemove.Add(entry.Key);
-                }
-            }
-
-            foreach (var key in keysToRemove)
-            {
-                iceRoomCache.Remove(key);
-            }
+                => iceRoomCache.Clear();
         }
 
         public float? GetIceCellarPerishRateOverride(BlockPos pos, IWorldAccessor world)
@@ -146,14 +111,13 @@ namespace IceCellarMod
             // Use room bounds as unique identifier
             RoomKey roomKey = new RoomKey(room);
 
-            if (!iceRoomCache.TryGetValue(roomKey, out IceRoomEntry? entry))
+            if (!iceRoomCache.TryGetValue(roomKey, out bool isIceCellar))
             {
-                bool isIce = ComputeIsIceCellar(room, pos, world);
-                entry = new IceRoomEntry(room, isIce);
-                iceRoomCache[roomKey] = entry;
+                isIceCellar = ComputeIsIceCellar(room, pos, world);
+                iceRoomCache[roomKey] = isIceCellar;
             }
 
-            if (!entry.IsIceCellar) return null;
+            if (!isIceCellar) return null;
 
             float outsideTemp = world.BlockAccessor
                 .GetClimateAt(pos, EnumGetClimateMode.ForSuppliedDate_TemperatureOnly,
@@ -352,19 +316,17 @@ namespace IceCellarMod
             {
                 if (string.IsNullOrWhiteSpace(pattern)) continue;
 
-                int patternMatches = 0;
-
-                foreach (Block block in api.World.Blocks)
+                // Let Vintage Story resolve wildcards. That keeps our config
+                // patterns aligned with the game's own block-code matching
+                // rules and avoids maintaining a second matcher here.
+                Block[] patternBlocks = api.World.SearchBlocks(new AssetLocation(pattern));
+                foreach (Block block in patternBlocks)
                 {
-                    if (block?.Code == null || block.Id == 0) continue;
-
-                    if (!MatchesWildcard(block.Code.ToString(), pattern)) continue;
-
+                    if (block == null || block.Id == 0) continue;
                     matchedBlocks.Add(block);
-                    patternMatches++;
                 }
 
-                if (patternMatches == 0)
+                if (patternBlocks.Length == 0)
                 {
                     api.Logger.Warning("[IceCellar] CoolingBlockCodePatterns entry matched no blocks: {0}", pattern);
                 }
@@ -387,56 +349,10 @@ namespace IceCellarMod
 
         static bool HasIceCoolingBehavior(Block block)
         {
-            if (block.BlockBehaviors == null) return false;
-
-            foreach (BlockBehavior behavior in block.BlockBehaviors)
-            {
-                if (behavior is BlockBehaviorIceCooling) return true;
-            }
-
-            return false;
-        }
-
-        static bool MatchesWildcard(string text, string pattern)
-        {
-            int textIndex = 0;
-            int patternIndex = 0;
-            int starIndex = -1;
-            int matchIndex = 0;
-
-            while (textIndex < text.Length)
-            {
-                if (patternIndex < pattern.Length &&
-                    (pattern[patternIndex] == text[textIndex] || pattern[patternIndex] == '*'))
-                {
-                    if (pattern[patternIndex] == '*')
-                    {
-                        starIndex = patternIndex++;
-                        matchIndex = textIndex;
-                    }
-                    else
-                    {
-                        patternIndex++;
-                        textIndex++;
-                    }
-                }
-                else if (starIndex != -1)
-                {
-                    patternIndex = starIndex + 1;
-                    textIndex = ++matchIndex;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-
-            while (patternIndex < pattern.Length && pattern[patternIndex] == '*')
-            {
-                patternIndex++;
-            }
-
-            return patternIndex == pattern.Length;
+            // Use the engine's behavior lookup instead of walking the behavior
+            // array ourselves. It is shorter and respects inherited behavior
+            // types if this ever grows a derived cooling behavior.
+            return block.GetBehavior(typeof(BlockBehaviorIceCooling), true) != null;
         }
 
         bool ConfigIsMissingFields(string configFileName, params string[] fieldNames)
@@ -567,18 +483,9 @@ namespace IceCellarMod
         // A block counts if it has the custom cooling behavior ONLY.
         public static bool IsIceCoolingBlock(Block? block)
         {
-            if (block == null) return false;
-
-            if (block.BlockBehaviors != null)
-            {
-                foreach (var b in block.BlockBehaviors)
-                {
-                    if (b is BlockBehaviorIceCooling)
-                        return true;
-                }
-            }
-
-            return false;
+            // Same lookup as attachment uses, so the room scan and the behavior
+            // injection path agree on what "has IceCooling" means.
+            return block?.GetBehavior(typeof(BlockBehaviorIceCooling), true) != null;
         }
     }
 }

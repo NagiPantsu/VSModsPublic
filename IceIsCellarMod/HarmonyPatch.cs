@@ -1,8 +1,6 @@
 using HarmonyLib;
 using System;
-using System.Reflection;
 using Vintagestory.API.Common;
-using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.API.Client;
 
@@ -54,29 +52,13 @@ namespace IceCellarMod
         }
     }
 
-    [HarmonyPatch]
+    [HarmonyPatch(
+        typeof(CollectibleObject),
+        nameof(CollectibleObject.GetTransitionRateMul),
+        new Type[] { typeof(IWorldAccessor), typeof(ItemSlot), typeof(EnumTransitionType) })]
     public static class TransitionRatePatch
     {
         public static IceCellarModSystem? ModSystem { get; set; }
-
-        [HarmonyTargetMethod]
-        static MethodBase? TargetMethod()
-        {
-            var type = AccessTools.TypeByName("Vintagestory.API.Common.CollectibleObject");
-            if (type == null)
-            {
-                Console.Error.WriteLine("[IceCellar] Could not find CollectibleObject type.");
-                return null;
-            }
-
-            var method = AccessTools.Method(type, "GetTransitionRateMul",
-                new[] { typeof(IWorldAccessor), typeof(ItemSlot), typeof(EnumTransitionType) });
-
-            if (method == null)
-                Console.Error.WriteLine("[IceCellar] Could not find GetTransitionRateMul method.");
-
-            return method;
-        }
 
         [HarmonyPostfix]
         static void Postfix(ref float __result, IWorldAccessor world, ItemSlot inSlot,
@@ -85,17 +67,13 @@ namespace IceCellarMod
             if (transType != EnumTransitionType.Perish) return;
             if (ModSystem == null || world == null || inSlot?.Inventory == null) return;
 
-            BlockPos? invPos = inSlot.Inventory.Pos;
+            var invPos = inSlot.Inventory.Pos;
             if (invPos == null) return;
 
-            BlockPos pos = invPos.Copy();
-
-            float? newRate = ModSystem.GetIceCellarPerishRateOverride(pos, world);
-
-            if (newRate.HasValue)
+            if (ModSystem.GetIceCellarPerishRateOverride(invPos, world) is float newRate)
             {
                 // Never override vanilla with a worse value
-                __result = Math.Min(__result, newRate.Value);
+                __result = Math.Min(__result, newRate);
             }
         }
     }

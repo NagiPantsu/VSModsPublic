@@ -29,18 +29,13 @@ namespace IceCellarMod
             EnumRetentionType type,
             ref EnumHandling handling)
         {
-            // Only affect solid faces. Partially solid shapes should still return 0
-            // on open faces, matching vanilla retention behavior.
-            if (block.SideSolid[facing.Index])
-            {
-                // PreventDefault means: use our return value, ignore other behaviours
-                handling = EnumHandling.PreventDefault;
-                return CoolingRetentionValue;
-            }
+            // IceCooling is only meant to affect cellar heat retention. Sound
+            // and water checks should keep the block's normal vanilla behavior.
+            if (type != EnumRetentionType.Heat || !block.SideSolid[facing.Index]) return 0;
 
-            // Non-solid face: let the game decide (returns 0 normally)
-            handling = EnumHandling.PassThrough;
-            return 0;
+            // PreventDefault means: use our return value, ignore other behaviours.
+            handling = EnumHandling.PreventDefault;
+            return CoolingRetentionValue;
         }
     }
 }

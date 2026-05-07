@@ -7,7 +7,6 @@
 	behaviors: [
 		{ name: "IceCooling" }
 	],
-	renderpass: "Opaque",
 	creativeinventory: { "general": ["*"], "terrain": ["*"] },
 	blockmaterial: "Ice",
 	replaceable: 950,
