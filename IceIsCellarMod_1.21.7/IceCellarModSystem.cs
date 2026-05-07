@@ -17,46 +17,22 @@ namespace IceCellarMod
         public float MinPerishRate = 0.1f;
         public float LightPenaltyMultiplier = 0.5f;
     }
-    public class IceRoomEntry 
+    readonly record struct RoomKey(
+        int X1,
+        int Y1,
+        int Z1,
+        int X2,
+        int Y2,
+        int Z2)
     {
-        public Cuboidi Location;
-        public bool IsIceCellar;
-
-        public IceRoomEntry(Room room, bool isIceCellar)
-        {
-            Location = room.Location;
-            IsIceCellar = isIceCellar;
-        }
-    }
-
-    //Stupid rooms can get funky so we stop using string keys.
-    struct RoomKey
-    {
-        public readonly int X1, Y1, Z1;
-        public readonly int X2, Y2, Z2;
-
-        public RoomKey(Room room)
-        {
-            X1 = room.Location.Start.X;
-            Y1 = room.Location.Start.Y;
-            Z1 = room.Location.Start.Z;
-
-            X2 = room.Location.End.X;
-            Y2 = room.Location.End.Y;
-            Z2 = room.Location.End.Z;
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(X1, Y1, Z1, X2, Y2, Z2);
-        }
-
-        public override bool Equals(object? obj)
-        {
-            return obj is RoomKey other &&
-                X1 == other.X1 && Y1 == other.Y1 && Z1 == other.Z1 &&
-                X2 == other.X2 && Y2 == other.Y2 && Z2 == other.Z2;
-        }
+        public RoomKey(Room room) : this(
+            room.Location.Start.X,
+            room.Location.Start.Y,
+            room.Location.Start.Z,
+            room.Location.End.X,
+            room.Location.End.Y,
+            room.Location.End.Z)
+        { }
     }
 
     public class IceCellarModSystem : ModSystem
@@ -64,8 +40,7 @@ namespace IceCellarMod
         ICoreAPI api = null!;
         IceCellarConfig config = null!;
 
-        // Updated to use unique keys
-        readonly Dictionary<RoomKey, IceRoomEntry> iceRoomCache = new();
+        readonly Dictionary<RoomKey, bool> iceRoomCache = new();
 
         public override void Start(ICoreAPI api)
         {
@@ -77,27 +52,9 @@ namespace IceCellarMod
         public override void StartServerSide(ICoreServerAPI sapi)
         {
             sapi.Event.DidBreakBlock += (byPlayer, oldBlockId, blockSel)
-                => InvalidateCacheAt(blockSel.Position);
+                => iceRoomCache.Clear();
             sapi.Event.DidPlaceBlock += (byPlayer, oldblockId, blockSel, withItemStack)
-                => InvalidateCacheAt(blockSel.Position);    
-        }
-
-        void InvalidateCacheAt(BlockPos pos)
-        {
-           var keysToRemove = new List<RoomKey>();
-
-            foreach (var entry in iceRoomCache)
-            {
-                if (entry.Value.Location.Contains(pos.X, pos.Y, pos.Z))
-                {
-                    keysToRemove.Add(entry.Key);
-                }
-            }
-
-            foreach (var key in keysToRemove)
-            {
-                iceRoomCache.Remove(key);
-            }
+                => iceRoomCache.Clear();
         }
 
         public float? GetIceCellarPerishRateOverride(BlockPos pos, IWorldAccessor world)
@@ -112,14 +69,13 @@ namespace IceCellarMod
             // Use room bounds as unique identifier
             RoomKey roomKey = new RoomKey(room);
 
-            if (!iceRoomCache.TryGetValue(roomKey, out IceRoomEntry? entry))
+            if (!iceRoomCache.TryGetValue(roomKey, out bool isIceCellar))
             {
-                bool isIce = ComputeIsIceCellar(room, pos, world);
-                entry = new IceRoomEntry(room, isIce);
-                iceRoomCache[roomKey] = entry;
+                isIceCellar = ComputeIsIceCellar(room, pos, world);
+                iceRoomCache[roomKey] = isIceCellar;
             }
 
-            if (!entry.IsIceCellar) return null;
+            if (!isIceCellar) return null;
 
             float outsideTemp = world.BlockAccessor
                 .GetClimateAt(pos, EnumGetClimateMode.ForSuppliedDate_TemperatureOnly,
@@ -381,18 +337,7 @@ namespace IceCellarMod
         // A block counts if it has the custom cooling behavior ONLY.
         public static bool IsIceCoolingBlock(Block? block)
         {
-            if (block == null) return false;
-
-            if (block.BlockBehaviors != null)
-            {
-                foreach (var b in block.BlockBehaviors)
-                {
-                    if (b is BlockBehaviorIceCooling)
-                        return true;
-                }
-            }
-
-            return false;
+            return block?.GetBehavior(typeof(BlockBehaviorIceCooling), true) != null;
         }
     }
 }

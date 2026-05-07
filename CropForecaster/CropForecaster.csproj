@@ -6,7 +6,7 @@
     <AssemblyName>CropForecaster</AssemblyName>
     <RootNamespace>CropForecaster</RootNamespace>
 
-    <GameDir>$(AppData)\VSLGameVersions\1.22.0</GameDir>
+    <GameDir>$(AppData)\VSLGameVersions\1.22.2</GameDir>
   </PropertyGroup>
 
   <ItemGroup>
