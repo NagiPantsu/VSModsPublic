@@ -6,7 +6,7 @@
         <OutputPath>bin\$(Configuration)\Mods\mod</OutputPath>
         <LangVersion>13</LangVersion>
         <Nullable>enable</Nullable>
-        <GameDir>$(AppData)\VSLGameVersions\1.22.0</GameDir>
+        <GameDir>$(AppData)\VSLGameVersions\1.22.2</GameDir>
     </PropertyGroup>
 
     <ItemGroup>

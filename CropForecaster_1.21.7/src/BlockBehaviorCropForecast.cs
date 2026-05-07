@@ -133,6 +133,8 @@ namespace CropForecaster
                     break;
             }
 
+            AppendClimateStressInfo(sb, report);
+
             if (includeProbabilisticForecast)
             {
                 AppendProbabilisticForecastInfo(sb, probabilisticReport, world.Api.World.Calendar.HoursPerDay, prePlantPreview);
@@ -225,6 +227,19 @@ namespace CropForecaster
         {
             float safeHoursPerDay = Math.Max(1f, hoursPerDay);
             return (int)(forecastHours / safeHoursPerDay);
+        }
+
+        private static void AppendClimateStressInfo(StringBuilder sb, CropForecastSystem.ForecastReport report)
+        {
+            if (!CropForecastSystem.HasClimateStress(report))
+            {
+                return;
+            }
+
+            // We warn about yield risk without trying to mirror the exact vanilla harvest multiplier.
+            sb.AppendLine(CropForecastSystem.HasSevereClimateStress(report)
+                ? "<font color=\"#ffcc66\">Climate warning: Severe stress may reduce yield before harvest</font>"
+                : "<font color=\"#d8c18a\">Climate warning: Expected reduced yield due to harsh climate</font>");
         }
 
         private static void AppendProbabilisticForecastInfo(StringBuilder sb, CropForecastSystem.ProbabilisticForecastReport report, float hoursPerDay, bool prePlantPreview)
