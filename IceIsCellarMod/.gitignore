@@ -1,0 +1,7 @@
+.dotnet
+.nuget
+.vscode
+/bin
+/obj
+IceIsCellarMod.sln
+*.zip

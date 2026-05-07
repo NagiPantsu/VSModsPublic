@@ -1,0 +1,84 @@
+[
+    {
+        "op": "add",
+        "path": "/behaviors",
+        "file": "game:blocktypes/liquid/packedglacierice.json",
+        "value": [{ "name": "IceCooling" }]
+    },
+     
+    {
+        "op":"replace",
+        "path": "/lightAbsorption",
+        "file": "game:blocktypes/liquid/packedglacierice.json",        
+        "value": 99
+    },
+    
+    {
+        "op": "addmerge",
+        "path": "/behaviors/-",
+        "file": "game:blocktypes/wood/agedwallpaperplanks.json",
+        "value": { "name": "IceCooling" }
+    },
+
+      {
+    "op": "addmerge",
+    "path": "/behaviorsByType/*-grown-*/-",
+    "file": "game:blocktypes/wood/woodtyped/log.json",
+    "value": { "name": "IceCooling" }
+    },
+    {
+    "op": "addmerge",
+    "path": "/behaviorsByType/*/-",
+    "file": "game:blocktypes/wood/woodtyped/log.json",
+    "value": { "name": "IceCooling" }
+    },
+    
+    {
+        "op": "addmerge",
+        "path": "/behaviors/-",
+        "file": "game:blocktypes/wood/woodtyped/log-carved.json",
+        "value": { "name": "IceCooling" }
+    },
+
+    {
+        "op": "addmerge",
+        "path": "/behaviors/-",
+        "file": "game:blocktypes/wood/woodtyped/log-debarked.json",
+        "value": { "name": "IceCooling" }
+    },
+    
+    {
+    "op": "addmerge",
+    "path": "/behaviorsByType/*/-",
+    "file": "game:blocktypes/wood/woodtyped/log-quad.json",
+    "value": { "name": "IceCooling" }
+    },
+
+    {
+        "op": "addmerge",
+        "path": "/behaviors/-",
+        "file": "game:blocktypes/wood/woodtyped/log-quad-corner.json",
+        "value": { "name": "IceCooling" }
+    },
+
+    {
+    "op": "addmerge",
+    "path": "/behaviorsByType/*-grown-*/-",
+    "file": "game:blocktypes/wood/woodtyped/log-section.json",
+    "value": { "name": "IceCooling" }
+    },
+
+    {
+    "op": "add",
+    "path": "/behaviorsByType/*-placed-*",
+    "file": "game:blocktypes/wood/woodtyped/log-section.json",
+    "value": [{ "name": "IceCooling" }]
+    },
+
+    {
+        "op": "addmerge",
+        "path": "/behaviors/-",
+        "file": "game:blocktypes/wood/woodtyped/planks.json",
+        "value": { "name": "IceCooling" }
+    }
+]

@@ -1,0 +1,8 @@
+.dotnet
+.nuget
+.vscode
+/bin
+/obj
+*.sln
+*.zip
+*.md

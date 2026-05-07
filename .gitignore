@@ -1,0 +1,27 @@
+*.txt
+*.zip
+ReleasesStable
+TestMod
+
+# .NET build output
+**/bin/
+**/obj/
+**/[Dd]ebug/
+**/[Rr]elease/
+
+# Local tooling and IDE folders
+**/.dotnet/
+**/.nuget/
+**/.vs/
+**/.vscode/
+**/.idea/
+mdNotes/
+ReleasesStable/
+vsapi_source/
+vsmod_source/
+.tmp-vssurvivalmod/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
