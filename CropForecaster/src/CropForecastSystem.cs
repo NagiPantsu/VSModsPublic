@@ -277,6 +277,7 @@ namespace CropForecaster
 
             Random random = new Random(CreateProbabilisticSeed(api, farmlandPos, crop, currentStage, hoursUntilNextStage, randomizeInitialStage));
             List<double> survivingGrowthHours = new List<double>(effectiveSimulationCount);
+            Dictionary<int, float> temperatureByStep = new Dictionary<int, float>();
             bool hasGreenhouseBonus = HasGreenhouseBonus(farmland);
 
             int surviveCount = 0;
@@ -295,7 +296,8 @@ namespace CropForecaster
                     remainingStageTransitions,
                     randomizeInitialStage,
                     random,
-                    initialDamage
+                    initialDamage,
+                    temperatureByStep
                 );
 
                 if (outcome.LowestTempExperienced < report.LowestTempExperienced) report.LowestTempExperienced = outcome.LowestTempExperienced;
@@ -402,6 +404,11 @@ namespace CropForecaster
 
         internal static TemperatureSimulationReport SimulateTemperatureWindow(ICoreAPI api, BlockPos farmlandPos, BlockCrop crop, bool hasGreenhouseBonus, double initialHourOffset, double simulatedGrowthHours, CropDamageState initialDamage)
         {
+            return SimulateTemperatureWindow(api, farmlandPos, crop, hasGreenhouseBonus, initialHourOffset, simulatedGrowthHours, initialDamage, null);
+        }
+
+        private static TemperatureSimulationReport SimulateTemperatureWindow(ICoreAPI api, BlockPos farmlandPos, BlockCrop crop, bool hasGreenhouseBonus, double initialHourOffset, double simulatedGrowthHours, CropDamageState initialDamage, Dictionary<int, float>? temperatureByStep)
+        {
             TemperatureSimulationReport report = new TemperatureSimulationReport
             {
                 Failure = TemperatureFailure.None,
@@ -431,17 +438,25 @@ namespace CropForecaster
             while (futureHourOffset < simulatedGrowthHours)
             {
                 futureHourOffset += intervalHours;
-                double simulatedTotalDays = (currentTotalHours + futureHourOffset) / api.World.Calendar.HoursPerDay;
+                int stepIndex = (int)Math.Round(futureHourOffset / intervalHours);
 
-                // Reuse the base climate object in this tight loop; the accessor updates temperature/rainfall for the supplied date.
-                ClimateCondition futureClimate = baseClimate == null
-                    ? api.World.BlockAccessor.GetClimateAt(cropPos, EnumGetClimateMode.ForSuppliedDate_TemperatureRainfallOnly, simulatedTotalDays)
-                    : api.World.BlockAccessor.GetClimateAt(cropPos, baseClimate, EnumGetClimateMode.ForSuppliedDate_TemperatureRainfallOnly, simulatedTotalDays);
+                if (temperatureByStep == null || !temperatureByStep.TryGetValue(stepIndex, out float temperature))
+                {
+                    double simulatedTotalDays = (currentTotalHours + futureHourOffset) / api.World.Calendar.HoursPerDay;
 
-                if (futureClimate == null) break;
+                    // Reuse the base climate object in this tight loop; the accessor updates temperature/rainfall for the supplied date.
+                    ClimateCondition futureClimate = baseClimate == null
+                        ? api.World.BlockAccessor.GetClimateAt(cropPos, EnumGetClimateMode.ForSuppliedDate_TemperatureRainfallOnly, simulatedTotalDays)
+                        : api.World.BlockAccessor.GetClimateAt(cropPos, baseClimate, EnumGetClimateMode.ForSuppliedDate_TemperatureRainfallOnly, simulatedTotalDays);
+
+                    if (futureClimate == null) break;
+
+                    temperature = futureClimate.Temperature;
+                    temperatureByStep?.Add(stepIndex, temperature);
+                }
 
                 // Keep the API-owned climate object untouched; the greenhouse bonus only belongs to this forecast calculation.
-                float temperature = futureClimate.Temperature + (hasGreenhouseBonus ? GreenhouseTemperatureBonus : 0f);
+                temperature += hasGreenhouseBonus ? GreenhouseTemperatureBonus : 0f;
 
                 if (temperature < report.LowestTempExperienced) report.LowestTempExperienced = temperature;
                 if (temperature > report.HighestTempExperienced) report.HighestTempExperienced = temperature;
@@ -519,7 +534,7 @@ namespace CropForecaster
             return report.PeakColdDamage >= severeStressThreshold || report.PeakHeatDamage >= severeStressThreshold;
         }
 
-        private static ProbabilisticSimulationOutcome SimulateProbabilisticOutcome(ICoreAPI api, BlockPos farmlandPos, BlockCrop crop, bool hasGreenhouseBonus, double baseStageDuration, double hoursUntilNextStage, int remainingStageTransitions, bool randomizeInitialStage, Random random, CropDamageState initialDamage)
+        private static ProbabilisticSimulationOutcome SimulateProbabilisticOutcome(ICoreAPI api, BlockPos farmlandPos, BlockCrop crop, bool hasGreenhouseBonus, double baseStageDuration, double hoursUntilNextStage, int remainingStageTransitions, bool randomizeInitialStage, Random random, CropDamageState initialDamage, Dictionary<int, float> temperatureByStep)
         {
             // For already planted crops the first transition is whatever the live farmland says is left.
             // For pre-sow preview there is no live timer yet, so we sample that first stage too.
@@ -532,7 +547,7 @@ namespace CropForecaster
                 totalGrowthHours += SampleStageDuration(baseStageDuration, random);
             }
 
-            TemperatureSimulationReport temperatureReport = SimulateTemperatureWindow(api, farmlandPos, crop, hasGreenhouseBonus, 0, totalGrowthHours, initialDamage);
+            TemperatureSimulationReport temperatureReport = SimulateTemperatureWindow(api, farmlandPos, crop, hasGreenhouseBonus, 0, totalGrowthHours, initialDamage, temperatureByStep);
             ForecastResult result = ForecastResult.WillSurvive;
 
             if (temperatureReport.Failure == TemperatureFailure.Freeze)
