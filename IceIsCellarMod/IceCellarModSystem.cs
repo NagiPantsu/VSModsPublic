@@ -64,6 +64,12 @@ namespace IceCellarMod
         { }
     }
 
+    readonly record struct InventoryRateKey(
+        int X,
+        int Y,
+        int Z,
+        int Dimension);
+
     public class IceCellarModSystem : ModSystem
     {
         const string ConfigFileName = "iceiscellarmodconfig.json";
@@ -71,10 +77,13 @@ namespace IceCellarMod
 
         ICoreAPI api = null!;
         IceCellarConfig config = null!;
+        RoomRegistry? roomRegistry;
 
         // Cache only the final yes/no result. We do not need to keep the whole
         // room entry around now that block changes simply clear the cache.
         readonly Dictionary<RoomKey, bool> iceRoomCache = new();
+        readonly Dictionary<InventoryRateKey, float?> perishRateCache = new();
+        int perishRateCacheBucket = int.MinValue;
 
         public override void Start(ICoreAPI api)
         {
@@ -94,19 +103,41 @@ namespace IceCellarMod
             // ratio. Clearing the whole cache is simpler and cheap compared to
             // trying to surgically find every affected room.
             sapi.Event.DidBreakBlock += (byPlayer, oldBlockId, blockSel)
-                => iceRoomCache.Clear();
+                => ClearRuntimeCaches();
             sapi.Event.DidPlaceBlock += (byPlayer, oldblockId, blockSel, withItemStack)
-                => iceRoomCache.Clear();
+                => ClearRuntimeCaches();
         }
 
         public float? GetIceCellarPerishRateOverride(BlockPos pos, IWorldAccessor world)
         {
-            var roomRegistry = api.ModLoader.GetModSystem<RoomRegistry>();
+            roomRegistry ??= api.ModLoader.GetModSystem<RoomRegistry>();
             if (roomRegistry == null) return null;
 
+            int currentBucket = (int)Math.Floor(world.Calendar.TotalHours * 10);
+            if (currentBucket != perishRateCacheBucket)
+            {
+                perishRateCache.Clear();
+                perishRateCacheBucket = currentBucket;
+            }
+
+            var rateKey = new InventoryRateKey(pos.X, pos.Y, pos.Z, pos.dimension);
+            if (perishRateCache.TryGetValue(rateKey, out float? cachedRate))
+            {
+                return cachedRate;
+            }
+
             Room? room = roomRegistry.GetRoomForPosition(pos);
-            if (room == null || room.ExitCount != 0 || !room.IsSmallRoom) return null;
-            if (room.CoolingWallCount <= 0) return null;
+            if (room == null || room.ExitCount != 0 || !room.IsSmallRoom)
+            {
+                perishRateCache[rateKey] = null;
+                return null;
+            }
+
+            if (room.CoolingWallCount <= 0)
+            {
+                perishRateCache[rateKey] = null;
+                return null;
+            }
 
             // Use room bounds as unique identifier
             RoomKey roomKey = new RoomKey(room);
@@ -117,7 +148,11 @@ namespace IceCellarMod
                 iceRoomCache[roomKey] = isIceCellar;
             }
 
-            if (!isIceCellar) return null;
+            if (!isIceCellar)
+            {
+                perishRateCache[rateKey] = null;
+                return null;
+            }
 
             float outsideTemp = world.BlockAccessor
                 .GetClimateAt(pos, EnumGetClimateMode.ForSuppliedDate_TemperatureOnly,
@@ -152,9 +187,20 @@ namespace IceCellarMod
             float rate = Math.Max(minPerishRate,
                 Math.Min(2.4f, (float)Math.Pow(3.0, iceTemp / 19.0 - 1.2) - 0.1f));
 
-            if (rate >= 2.4f) return null;
+            if (rate >= 2.4f)
+            {
+                perishRateCache[rateKey] = null;
+                return null;
+            }
 
+            perishRateCache[rateKey] = rate;
             return rate;
+        }
+
+        void ClearRuntimeCaches()
+        {
+            iceRoomCache.Clear();
+            perishRateCache.Clear();
         }
 
         IceCellarConfig LoadOrCreateConfig()
